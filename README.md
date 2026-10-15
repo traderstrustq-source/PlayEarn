@@ -1,5 +1,3 @@
-# PlayEarn
-play easy , earn easy
 <!DOCTYPE html>
 <html lang="en">
 <head>
