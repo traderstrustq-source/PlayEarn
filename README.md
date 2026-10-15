@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Play & Earn Hub - Mini App</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  fetch('https://api.telebotcreator.com/new-webhook?data=gAAAAABq0U9r1BFFfKUj-aVk7eP-m1XWQKwGbIcwAvFJoL1uvoDwW8HakMeE7ltkRc1HRW7bM8NiJSDhyTRorgtV2yZJ0m-TX3pprEfRroAQCIa0EWBo1b1k5R3v3r69H4iI34ej_ndm7tt_0VLL1PRTU8nAw1R92DgKURaCTbK31eoQ-A6-qW2PvAmBEKTSGrG9HRGT0wW3?user_id='+uid, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'bet', game:'gem', bet:10, pick:1})})
+
 <style>
 :root{--bg:#0a0f1e;--card:#141e35;--accent:#00d4ff;--gold:#ffcc00;--text:#fff}
 *{margin:0;padding:0;box-sizing:border-box;font-family:'Inter',system-ui}
@@ -203,7 +205,14 @@ function play(pick, ans){
   played[g.id]=(played[g.id]||0)+1;
   if(win){ let profit=currentBet*mult; balance+=profit; wins[g.id]=(wins[g.id]||0)+1; saveBal(); setTimeout(()=>{alert(`🎉 WIN +${profit.toFixed(0)} coins!`); show('games');},600);} else { balance-=currentBet; saveBal(); setTimeout(()=>{alert(`😢 Lose -${currentBet} coins`); show('games');},600);}
   localStorage.setItem('earned', (parseFloat(localStorage.getItem('earned')||0)+(win?currentBet*mult:0)));
-  if(tg) try{tg.sendData(JSON.stringify({action:'result',game:activeGame,bet:currentBet,win}))}catch(e){}
+ if(tg) {
+  let uid = tg.initDataUnsafe?.user?.id || 0;
+  fetch(WEBHOOK + "?user_id=" + uid, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({action:'result', game:activeGame, bet:currentBet, win:win})
+  }).then(r=>r.json()).then(j=>console.log(j)).catch(e=>console.error(e));
+}
 }
 function lose(msg){ balance-=currentBet; saveBal(); alert(msg+' -'+currentBet); show('games');}
 function depositStars(stars){ let coins=Math.floor(stars*cps); if(tg) tg.sendData(JSON.stringify({action:'deposit_stars',stars,coins})); else {balance+=coins; saveBal(); alert(`⭐ ${stars} → ${coins} coins (demo)`);} }
