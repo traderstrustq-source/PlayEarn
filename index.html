@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Play & Earn Hub</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{--bg:#0a0f1e;--card:#141e35;--accent:#00d4ff;--gold:#ffcc00}
+*{margin:0;padding:0;box-sizing:border-box;font-family:system-ui}
+body{background:var(--bg);color:#fff}
+.header{padding:14px 16px;display:flex;justify-content:space-between;border-bottom:1px solid #1e3a5f;position:sticky;top:0;background:#0a0f1e;z-index:9}
+.nav{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:12px}
+.nav button{background:#141e35;color:#fff;border:1px solid #1e3a5f;padding:11px;border-radius:14px;font-weight:600}
+.nav button.active{background:#00d4ff;color:#000;font-weight:800}
+.screen{padding:16px;display:none} .screen.active{display:block}
+.card{background:#141e35;border-radius:20px;padding:16px;margin-bottom:12px;border:1px solid #1e3a5f}
+.games{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.game{background:linear-gradient(135deg,#1a2a4a,#0f1e38);border-radius:18px;padding:16px;text-align:center;border:1px solid #2a4a7a;cursor:pointer}
+.btn{width:100%;background:#00d4ff;color:#000;font-weight:800;border:none;padding:12px;border-radius:12px;margin-top:10px}
+.btn-gold{background:#ffcc00}
+.timer{height:6px;background:#0f243e;border-radius:99px;overflow:hidden;margin:8px 0}
+.timer i{display:block;height:100%;background:linear-gradient(90deg,#ff4444,#ffcc00);width:100%}
+</style>
+</head>
+<body>
+<div class="header"><b>🎮 PLAY & EARN <span style="font-size:10px;opacity:.6">*** Coins</span></b><div id="bal" style="color:#ffcc00;font-weight:800">20 coins</div></div>
+<div class="nav">
+<button onclick="showScreen('home')" id="b-home" class="active">Home</button>
+<button onclick="showScreen('games')" id="b-games">Games</button>
+<button onclick="showScreen('wallet')" id="b-wallet">Wallet</button>
+<button onclick="showScreen('profile')" id="b-profile">Profile</button>
+</div>
+<div id="home" class="screen active">
+<div class="card" style="background:linear-gradient(135deg,#00d4ff,#7b61ff)"><h3>💎 1$ = 100 coins</h3><p style="font-size:13px">50⭐ = 1$ → 1⭐ = 2 coins</p><button class="btn" style="background:#ffcc00" onclick="showScreen('wallet')">💳 Deposit Now</button></div>
+<div class="card">👥 Refer: <b id="refLink" style="font-size:11px;word-break:break-all"></b><br><button class="btn" onclick="navigator.clipboard.writeText(document.getElementById('refLink').innerText);alert('Copied')">📤 Share</button></div>
+<div class="card">🏆 Leaderboard<div id="lb" style="margin-top:8px">🥇 You — 20 coins</div></div>
+</div>
+<div id="games" class="screen"><div class="card"><b>🎮 12 GAMES - Tap to Play</b><br><span style="font-size:12px;opacity:.7">Pick bet → answer fast (2s/5s/10s)</span></div><div class="games" id="grid"></div></div>
+<div id="wallet" class="screen">
+<div class="card"><h3>💰 Wallet *** Coins</h3><div id="winfo">🪙 20 coins ≈ $0.20</div><p style="font-size:11px;margin-top:6px">1$ = 100 coins • 1⭐ = 2 coins</p></div>
+<div class="card"><b>💳 Deposit</b><button class="btn" onclick="depositStars(50)">⭐ 50⭐ → 100 coins (Instant)</button><button class="btn" style="background:#1a3a5a;color:#fff" onclick="alert('Manual UPI: demo@upi\nPay $ → 100 coins per $')">💳 Manual UPI ($→coins)</button><button class="btn" style="background:#1a3a5a;color:#fff" onclick="alert('TRC20: TX... demo address\nPay USDT → 100 coins per $')">🪙 Crypto TRC20</button></div>
+<div class="card"><b>💸 Withdraw (coins→$)</b><input id="wdAmt" placeholder="Coins e.g. 500" style="width:100%;padding:10px;border-radius:10px;border:none;margin-top:8px"><input id="wdInfo" placeholder="UPI / TRC20 address" style="width:100%;padding:10px;border-radius:10px;border:none;margin-top:8px"><button class="btn" style="background:#ffcc00" onclick="withdraw()">Request Withdraw</button></div>
+</div>
+<div id="play" class="screen"><div class="card" id="playCard"></div><button class="btn" style="background:#333;color:#fff" onclick="showScreen('games')">⬅️ Back to Games</button></div>
+<div id="profile" class="screen"><div class="card" id="pinfo"></div><div class="card"><b>💬 Support</b><input id="supMsg" placeholder="Message admin..." style="width:100%;padding:10px;border-radius:10px;border:none;margin-top:8px"><button class="btn" onclick="sendSupport()">Send</button><div id="supHist" style="font-size:12px;margin-top:8px"></div></div></div>
+<script>
+var tg = window.Telegram ? window.Telegram.WebApp : null; if(tg){tg.ready();tg.expand();}
+var uid = tg && tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user.id : 123456;
+var firstName = tg && tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user.first_name : "Player";
+var WEBHOOK = "https://api.telebotcreator.com/new-webhook?data=TBCSECRET_secret_4bc286da";
+var balance = parseFloat(localStorage.getItem('bal')||'20');
+var cpd=100, cps=2;
+function updateBal(){
+  document.getElementById('bal').innerHTML = balance.toFixed(0)+' coins';
+  document.getElementById('winfo').innerHTML = '🪙 <b>'+balance.toFixed(0)+' coins</b> ≈ $'+(balance/cpd).toFixed(2);
+  document.getElementById('pinfo').innerHTML = '<b>👤 '+firstName+'</b> ID:<code>'+uid+'</code><br>🪙 '+balance.toFixed(0)+' coins ≈ $'+(balance/cpd).toFixed(2);
+  document.getElementById('lb').innerHTML = '🥇 You — '+balance.toFixed(0)+' coins';
+  document.getElementById('refLink').innerText = 'https://t.me/Playearn1millionbot?start='+uid;
+}
+window.showScreen = function(id){
+  document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active')});
+  document.querySelectorAll('.nav button').forEach(function(b){b.classList.remove('active')});
+  document.getElementById(id).classList.add('active');
+  var btn=document.getElementById('b-'+id); if(btn) btn.classList.add('active');
+}
+var gamesList=[{id:'miner',name:'Miner',e:'⛏️',m:1.8},{id:'wheel',name:'Wheel',e:'🎰',m:2},{id:'gem',name:'Gem',e:'💎',m:2.5},{id:'number',name:'Number',e:'🧩',m:2.2},{id:'snake',name:'Snake',e:'🐍',m:2.8},{id:'quiz',name:'Quiz',e:'🏆',m:2},{id:'treasure',name:'Treasure',e:'🗝️',m:3},{id:'coin',name:'Flip',e:'🪙',m:2},{id:'dice',name:'Dice',e:'🎲',m:5},{id:'crash',name:'Crash',e:'🚀',m:1.9},{id:'ludo',name:'Ludo',e:'🎲',m:5},{id:'tap',name:'Tap',e:'💨',m:2}];
+var grid=document.getElementById('grid');
+gamesList.forEach(function(g){
+  var d=document.createElement('div'); d.className='game';
+  d.innerHTML='<div style="font-size:28px">'+g.e+'</div><b>'+g.name+'</b><br><span style="font-size:11px">'+g.m+'x</span>';
+  d.onclick=function(){openGame(g.id)}; grid.appendChild(d);
+});
+var currentBet=0, hidden=0, activeGame='', deadLine=0;
+window.openGame=function(id){
+  var g=gamesList.find(function(x){return x.id===id}); activeGame=id;
+  document.getElementById('playCard').innerHTML='<h3>'+g.name+' • '+g.m+'x</h3><p style="font-size:12px;opacity:.7">Balance: '+balance.toFixed(0)+' coins</p><div style="display:flex;gap:6px"><button class="btn" onclick="setBet(5)">5</button><button class="btn" onclick="setBet(10)">10</button><button class="btn" onclick="setBet(25)">25</button><button class="btn" onclick="setBet(50)">50</button></div><input id="cBet" placeholder="Custom coins" style="width:100%;padding:10px;border-radius:10px;border:none;margin-top:8px"><button class="btn" onclick="setBet(parseInt(document.getElementById(\'cBet\').value)||0)">Lock Bet</button><div id="area" style="margin-top:12px"></div><div class="timer"><i id="tBar"></i></div><span id="tText" style="font-size:12px"></span>';
+  showScreen('play');
+}
+window.setBet=function(v){
+  if(v<1||v>balance){alert('Invalid bet');return;}
+  currentBet=v; hidden=Math.floor(Math.random()*3);
+  var timeout=[2,5,10][Math.floor(Math.random()*3)]; deadLine=Date.now()+timeout*1000;
+  var bar=document.getElementById('tBar'), txt=document.getElementById('tText');
+  var iv=setInterval(function(){var left=Math.max(0,deadLine-Date.now()); if(bar) bar.style.width=(left/(timeout*1000)*100)+'%'; if(txt) txt.innerText='⏳ '+Math.ceil(left/1000)+'s'; if(left<=0) clearInterval(iv)},200);
+  var a=document.getElementById('area');
+  if(activeGame==='gem') a.innerHTML='<p>3 boxes tap!</p><div style="display:flex;gap:8px"><button class="btn" onclick="playGame(0)">Box 1</button><button class="btn" onclick="playGame(1)">Box 2</button><button class="btn" onclick="playGame(2)">Box 3</button></div>';
+  else if(activeGame==='coin') a.innerHTML='<div style="font-size:50px;text-align:center">🪙</div><button class="btn" onclick="playGame(\'head\')">HEAD</button><button class="btn" style="background:#222;color:#fff" onclick="playGame(\'tail\')">TAIL</button>';
+  else if(activeGame==='dice') a.innerHTML='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">'+[1,2,3,4,5,6].map(function(n){return '<button class="btn" onclick="playGame('+n+')">'+n+'</button>'}).join('')+'</div>';
+  else a.innerHTML='<button class="btn" onclick="playGame(0)">PLAY NOW</button>';
+}
+window.playGame=function(pick){
+  if(Date.now()>deadLine){balance-=currentBet; localStorage.setItem('bal',balance); updateBal(); alert('⏰ Time out! -'+currentBet); showScreen('games'); return;}
+  var win=Math.random()<0.45; if(['gem','treasure','snake'].includes(activeGame)) win=(pick===hidden)&&Math.random()<0.5;
+  var g=gamesList.find(function(x){return x.id===activeGame});
+  if(win) balance+=currentBet*g.m; else balance-=currentBet;
+  localStorage.setItem('bal',balance); updateBal();
+  fetch(WEBHOOK+'&user_id='+uid,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'bet',game:activeGame,bet:currentBet,pick:pick,win:win})}).catch(function(){});
+  alert(win?'🎉 WIN +'+(currentBet*g.m).toFixed(0)+' coins':'😢 Lose -'+currentBet+' coins'); showScreen('games');
+}
+window.depositStars=function(s){
+  fetch(WEBHOOK+'&user_id='+uid,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'deposit_stars',stars:s})}).catch(function(){});
+  alert('⭐ Invoice sent in bot chat for '+s+' ⭐ - open @Playearn1millionbot');
+}
+window.withdraw=function(){
+  var a=parseFloat(document.getElementById('wdAmt').value), i=document.getElementById('wdInfo').value;
+  if(!a||a>balance){alert('Invalid');return;}
+  fetch(WEBHOOK+'&user_id='+uid,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'withdraw',amount:a,info:i})}).catch(function(){});
+  alert('Withdraw requested '+a+' coins');
+}
+window.sendSupport=function(){
+  var m=document.getElementById('supMsg').value; if(!m) return;
+  fetch(WEBHOOK+'&user_id='+uid,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'support',msg:m})}).catch(function(){});
+  document.getElementById('supHist').innerHTML+='<div>You: '+m+'</div>'; document.getElementById('supMsg').value=''; alert('Sent to admin');
+}
+updateBal();
+</script>
+</body>
+</html>
